@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open Notes</title>
+  <!-- Load configuration for Together AI key -->
+  <script src="config.js"></script>
+  <style>
+    /* ---------- Particle Background ---------- */
+    #particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+      background: #e0e0e0;
+    }
+    /* ---------- Global Styles ---------- */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #e0e0e0;
+      color: #333;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.dark-mode {
+      background: #222;
+      color: #f1f1f1;
+    }
+    /* ---------- Header ---------- */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 20px;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: background 0.3s;
+    }
+    body.dark-mode header {
+      background: rgba(50, 50, 50, 0.8);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 500;
+    }
+    header .btn {
+      background: #007BFF;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      backdrop-filter: blur(5px);
+      margin-left: 5px;
+      transition: background 0.2s;
+    }
+    header .btn:hover {
+      background: #0056b3;
+    }
+    /* ---------- Main Content ---------- */
+    main {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+    }
+    /* ---------- Empty State ---------- */
+    #empty-state {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    #empty-add-btn {
+      background: rgba(0,123,255,0.5);
+      border: none;
+      padding: 20px 40px;
+      font-size: 20px;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+      backdrop-filter: blur(8px);
+      transition: background 0.2s;
+    }
+    #empty-add-btn:hover {
+      background: rgba(0,123,255,0.7);
+    }
+    /* ---------- Note Tiles ---------- */
+    .note-tile {
+      position: relative;
+      background: rgba(200,200,200,0.5);
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px;
+      width: 220px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+    body.dark-mode .note-tile {
+      background: rgba(70,70,70,0.7);
+      color: #f1f1f1;
+    }
+    .note-tile h3 {
+      margin: 0 0 5px 0;
+      font-size: 18px;
+    }
+    .note-tile p {
+      margin: 0;
+      font-size: 14px;
+    }
+    .note-tile.animate {
+      transform: scale(1.05);
+      opacity: 0.9;
+    }
+    .delete-note {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    /* ---------- Modal Overlay ---------- */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.3s;
+    }
+    .modal.hidden {
+      display: none;
+    }
+    .modal-content {
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 500px;
+      position: relative;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+      transition: background 0.3s, color 0.3s;
+      animation: fadeIn 0.3s;
+    }
+    body.dark-mode .modal-content {
+      background: rgba(50,50,50,0.95);
+      color: #f1f1f1;
+    }
+    .modal-content input[type="text"],
+    .modal-content textarea {
+      width: 80%;
+      padding: 10px;
+      margin: 10px auto;
+      display: block;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(5px);
+      transition: background 0.3s;
+    }
+    body.dark-mode .modal-content input[type="text"],
+    body.dark-mode .modal-content textarea {
+      background: rgba(70,70,70,0.9);
+      border: 1px solid #555;
+      color: #f1f1f1;
+    }
+    .modal-content textarea {
+      resize: vertical;
+      height: 150px;
+    }
+    .modal-content button {
+      background: #007BFF;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      backdrop-filter: blur(5px);
+      display: block;
+      margin: 10px auto;
+      transition: background 0.2s;
+    }
+    .modal-content button:hover {
+      background: #0056b3;
+    }
+    .modal-content .close-modal,
+    .modal-content .close-settings,
+    .modal-content .close-chat {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      font-size: 24px;
+      color: #555;
+    }
+    .export-options {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+    }
+    /* ---------- Floating Chat Button ---------- */
+    #ai-assistant-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      font-size: 16px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      cursor: pointer;
+      z-index: 1100;
+      transition: background 0.2s;
+    }
+    #ai-assistant-btn:hover {
+      background: #1e7e34;
+    }
+    /* ---------- Draggable Modal Styles (Calculator & Dictionary) ---------- */
+    .draggable-modal {
+      position: absolute;
+      z-index: 1500;
+      width: 320px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      animation: fadeIn 0.3s;
+    }
+    .draggable-modal .draggable-header {
+      background: #f1f1f1;
+      padding: 10px;
+      cursor: move;
+      font-weight: bold;
+      border-bottom: 1px solid #ccc;
+    }
+    body.dark-mode .draggable-modal .draggable-header {
+      background: #444;
+      color: #f1f1f1;
+      border-bottom: 1px solid #666;
+    }
+    /* ---------- Fade In Animation ---------- */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ---------- Particle Background ---------- -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- ---------- Main Application ---------- -->
+  <div id="app">
+    <header>
+      <h1 id="header-title">Open Notes</h1>
+      <div>
+        <button id="import-btn" class="btn">Import</button>
+        <button id="add-note-btn" class="btn">Add Note</button>
+        <button id="settings-btn" class="btn">Settings</button>
+        <button id="calculator-btn" class="btn">Calculator</button>
+        <button id="dictionary-btn" class="btn">Dictionary</button>
+      </div>
+    </header>
+    <main id="notes-container">
+      <!-- ---------- Empty State ---------- -->
+      <div id="empty-state">
+        <button id="empty-add-btn">Add</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ---------- Note Modal ---------- -->
+  <div id="note-modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close-modal" style="cursor:pointer;">×</span>
+      <input type="text" id="note-title" placeholder="Title" />
+      <textarea id="note-body" placeholder="Start typing your note..."></textarea>
+      <button id="save-note-btn">Save</button>
+      <div class="export-options hidden">
+        <span>Export as:</span>
+        <button class="export-btn" data-format="txt">TXT</button>
+        <button class="export-btn" data-format="opn">OPN</button>
+        <button class="export-btn" data-format="md">MD</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Settings Modal ---------- -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close-settings" style="cursor:pointer;">×</span>
+      <h2 id="settings-title" style="text-align:center;">Settings</h2>
+      <div style="margin-top:20px; text-align:center;">
+        <label id="particle-label" for="particle-toggle">Enable Particle Effects:</label>
+        <input type="checkbox" id="particle-toggle" checked>
+      </div>
+      <div style="margin-top:20px; text-align:center;">
+        <label id="language-label" for="language-select">Language:</label>
+        <select id="language-select">
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+          <option value="es">Español</option>
+          <option value="ru">Русский</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="zh-CN">中文</option>
+          <option value="ar">العربية</option>
+          <option value="it">Italiano</option>
+          <option value="pt">Português</option>
+          <option value="ko">한국어</option>
+          <option value="nl">Nederlands</option>
+          <option value="pl">Polski</option>
+          <option value="sv">Svenska</option>
+          <option value="hi">हिन्दी</option>
+        </select>
+      </div>
+      <div style="margin-top:20px; text-align:center;">
+        <label id="darkmode-label" for="darkmode-toggle">Dark Mode:</label>
+        <input type="checkbox" id="darkmode-toggle">
+      </div>
+      <div style="margin-top:20px; text-align:center;">
+        <button id="delete-all-btn" style="background:#dc3545;">Delete All Notes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Together AI Chat Modal ---------- -->
+  <div id="chat-modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close-chat" style="cursor:pointer;">×</span>
+      <h2 id="chat-title" style="margin-top:0; text-align:center;">Together AI Assistant</h2>
+      <div id="chat-log" style="max-height:300px; overflow-y:auto; background:#fff; margin-bottom:10px; padding:10px; border:1px solid #ccc; border-radius:4px;"></div>
+      <div style="display:flex;">
+        <input type="text" id="chat-input" placeholder="Ask me anything..." style="flex:1; padding:10px; border-radius:4px; border:1px solid #ccc;" />
+        <button id="chat-send-btn" style="padding:10px 15px; margin-left:10px; background:#007BFF; color:white; border:none; border-radius:4px;">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Draggable Calculator Modal ---------- -->
+  <div id="calculator-modal" class="draggable-modal hidden" style="top:100px; left:100px;">
+    <div class="draggable-header">
+      <span id="calc-header">Calculator</span>
+      <span class="close-calculator" style="float:right; cursor:pointer;">×</span>
+    </div>
+    <div class="modal-content" style="margin-top:40px; padding:10px;">
+      <input type="text" id="calc-display" readonly style="width:90%; text-align:right; margin:5px auto;" />
+      <div id="calc-buttons" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:5px;">
+        <button class="calc-btn">7</button>
+        <button class="calc-btn">8</button>
+        <button class="calc-btn">9</button>
+        <button class="calc-btn">/</button>
+        <button class="calc-btn">4</button>
+        <button class="calc-btn">5</button>
+        <button class="calc-btn">6</button>
+        <button class="calc-btn">*</button>
+        <button class="calc-btn">1</button>
+        <button class="calc-btn">2</button>
+        <button class="calc-btn">3</button>
+        <button class="calc-btn">-</button>
+        <button class="calc-btn">0</button>
+        <button class="calc-btn">C</button>
+        <button class="calc-btn">=</button>
+        <button class="calc-btn">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Draggable Dictionary Modal ---------- -->
+  <div id="dictionary-modal" class="draggable-modal hidden" style="top:200px; left:200px;">
+    <div class="draggable-header">
+      <span id="dict-header">Dictionary</span>
+      <span class="close-dictionary" style="float:right; cursor:pointer;">×</span>
+    </div>
+    <div class="modal-content" style="margin-top:40px; padding:5px;">
+      <iframe src="https://www.merriam-webster.com" style="width:100%; height:300px; border:none;"></iframe>
+    </div>
+  </div>
+
+  <!-- ---------- Floating Together AI Assistant Button ---------- -->
+  <button id="ai-assistant-btn">AI</button>
+
+  <script>
+    /* ---------- Translations & Language Functions ---------- */
+    const translations = {
+      en: {
+        header: "Open Notes",
+        addNote: "Add Note",
+        import: "Import",
+        settings: "Settings",
+        emptyAdd: "Add",
+        delete: "Delete",
+        aiAssistant: "Together AI Assistant",
+        particleLabel: "Enable Particle Effects:",
+        languageLabel: "Language:",
+        darkModeLabel: "Dark Mode:",
+        deleteAllBtn: "Delete All Notes",
+        confirmDeleteAll: "Are you sure you want to delete all notes?",
+        titlePlaceholder: "Title",
+        bodyPlaceholder: "Start typing your note...",
+        chatPlaceholder: "Ask me anything...",
+        calculator: "Calculator",
+        dictionary: "Dictionary"
+      },
+      ja: {
+        header: "オープンノート",
+        addNote: "ノートを追加",
+        import: "インポート",
+        settings: "設定",
+        emptyAdd: "追加",
+        delete: "削除",
+        aiAssistant: "Together AI アシスタント",
+        particleLabel: "パーティクル効果を有効にする:",
+        languageLabel: "言語:",
+        darkModeLabel: "ダークモード:",
+        deleteAllBtn: "すべてのノートを削除",
+        confirmDeleteAll: "本当にすべてのノートを削除しますか？",
+        titlePlaceholder: "タイトル",
+        bodyPlaceholder: "ノートを入力してください...",
+        chatPlaceholder: "何か質問してください...",
+        calculator: "計算機",
+        dictionary: "辞書"
+      },
+      es: {
+        header: "Notas Abiertas",
+        addNote: "Agregar Nota",
+        import: "Importar",
+        settings: "Configuración",
+        emptyAdd: "Agregar",
+        delete: "Eliminar",
+        aiAssistant: "Asistente Together AI",
+        particleLabel: "Habilitar efectos de partículas:",
+        languageLabel: "Idioma:",
+        darkModeLabel: "Modo Oscuro:",
+        deleteAllBtn: "Eliminar Todas las Notas",
+        confirmDeleteAll: "¿Está seguro de que desea eliminar todas las notas?",
+        titlePlaceholder: "Título",
+        bodyPlaceholder: "Comience a escribir su nota...",
+        chatPlaceholder: "Pregúntame cualquier cosa...",
+        calculator: "Calculadora",
+        dictionary: "Diccionario"
+      },
+      ru: {
+        header: "Открытые заметки",
+        addNote: "Добавить заметку",
+        import: "Импортировать",
+        settings: "Настройки",
+        emptyAdd: "Добавить",
+        delete: "Удалить",
+        aiAssistant: "Ассистент Together AI",
+        particleLabel: "Включить частицы:",
+        languageLabel: "Язык:",
+        darkModeLabel: "Темный режим:",
+        deleteAllBtn: "Удалить все заметки",
+        confirmDeleteAll: "Вы уверены, что хотите удалить все заметки?",
+        titlePlaceholder: "Заголовок",
+        bodyPlaceholder: "Начните ввод вашей заметки...",
+        chatPlaceholder: "Спросите меня что-нибудь...",
+        calculator: "Калькулятор",
+        dictionary: "Словарь"
+      },
+      fr: {
+        header: "Notes Ouvertes",
+        addNote: "Ajouter une Note",
+        import: "Importer",
+        settings: "Paramètres",
+        emptyAdd: "Ajouter",
+        delete: "Supprimer",
+        aiAssistant: "Assistant Together AI",
+        particleLabel: "Activer les effets de particules :",
+        languageLabel: "Langue:",
+        darkModeLabel: "Mode Sombre:",
+        deleteAllBtn: "Supprimer toutes les notes",
+        confirmDeleteAll: "Êtes-vous sûr de vouloir supprimer toutes les notes ?",
+        titlePlaceholder: "Titre",
+        bodyPlaceholder: "Commencez à rédiger votre note...",
+        chatPlaceholder: "Posez-moi une question...",
+        calculator: "Calculatrice",
+        dictionary: "Dictionnaire"
+      },
+      de: {
+        header: "Offene Notizen",
+        addNote: "Notiz hinzufügen",
+        import: "Importieren",
+        settings: "Einstellungen",
+        emptyAdd: "Hinzufügen",
+        delete: "Löschen",
+        aiAssistant: "Together AI Assistent",
+        particleLabel: "Partikeleffekte aktivieren:",
+        languageLabel: "Sprache:",
+        darkModeLabel: "Dunkler Modus:",
+        deleteAllBtn: "Alle Notizen löschen",
+        confirmDeleteAll: "Möchten Sie wirklich alle Notizen löschen?",
+        titlePlaceholder: "Titel",
+        bodyPlaceholder: "Beginnen Sie mit dem Schreiben Ihrer Notiz...",
+        chatPlaceholder: "Stellen Sie mir eine Frage...",
+        calculator: "Taschenrechner",
+        dictionary: "Wörterbuch"
+      },
+      "zh-CN": {
+        header: "开放笔记",
+        addNote: "添加笔记",
+        import: "导入",
+        settings: "设置",
+        emptyAdd: "添加",
+        delete: "删除",
+        aiAssistant: "Together AI 助手",
+        particleLabel: "启用粒子效果：",
+        languageLabel: "语言：",
+        darkModeLabel: "暗模式：",
+        deleteAllBtn: "删除所有笔记",
+        confirmDeleteAll: "您确定要删除所有笔记吗？",
+        titlePlaceholder: "标题",
+        bodyPlaceholder: "开始输入笔记内容...",
+        chatPlaceholder: "问我任何问题...",
+        calculator: "计算器",
+        dictionary: "词典"
+      },
+      ar: {
+        header: "الملاحظات المفتوحة",
+        addNote: "إضافة ملاحظة",
+        import: "استيراد",
+        settings: "الإعدادات",
+        emptyAdd: "إضافة",
+        delete: "حذف",
+        aiAssistant: "مساعد Together AI",
+        particleLabel: "تمكين تأثيرات الجسيمات:",
+        languageLabel: "اللغة:",
+        darkModeLabel: "الوضع الداكن:",
+        deleteAllBtn: "حذف كل الملاحظات",
+        confirmDeleteAll: "هل أنت متأكد أنك تريد حذف كل الملاحظات؟",
+        titlePlaceholder: "العنوان",
+        bodyPlaceholder: "ابدأ بكتابة ملاحظتك...",
+        chatPlaceholder: "اطرح علي أي سؤال...",
+        calculator: "آلة حاسبة",
+        dictionary: "قاموس"
+      },
+      it: {
+        header: "Note Aperte",
+        addNote: "Aggiungi Nota",
+        import: "Importa",
+        settings: "Impostazioni",
+        emptyAdd: "Aggiungi",
+        delete: "Elimina",
+        aiAssistant: "Assistente Together AI",
+        particleLabel: "Abilita effetti particellari:",
+        languageLabel: "Lingua:",
+        darkModeLabel: "Modalità Scura:",
+        deleteAllBtn: "Elimina tutte le note",
+        confirmDeleteAll: "Sei sicuro di voler eliminare tutte le note?",
+        titlePlaceholder: "Titolo",
+        bodyPlaceholder: "Inizia a scrivere la tua nota...",
+        chatPlaceholder: "Chiedimi qualcosa...",
+        calculator: "Calcolatrice",
+        dictionary: "Dizionario"
+      },
+      pt: {
+        header: "Notas Abertas",
+        addNote: "Adicionar Nota",
+        import: "Importar",
+        settings: "Configurações",
+        emptyAdd: "Adicionar",
+        delete: "Excluir",
+        aiAssistant: "Assistente Together AI",
+        particleLabel: "Ativar efeitos de partículas:",
+        languageLabel: "Idioma:",
+        darkModeLabel: "Modo Escuro:",
+        deleteAllBtn: "Excluir todas as notas",
+        confirmDeleteAll: "Você tem certeza que deseja excluir todas as notas?",
+        titlePlaceholder: "Título",
+        bodyPlaceholder: "Comece a digitar sua nota...",
+        chatPlaceholder: "Pergunte-me algo...",
+        calculator: "Calculadora",
+        dictionary: "Dicionário"
+      },
+      ko: {
+        header: "오픈 노트",
+        addNote: "노트 추가",
+        import: "가져오기",
+        settings: "설정",
+        emptyAdd: "추가",
+        delete: "삭제",
+        aiAssistant: "Together AI 어시스턴트",
+        particleLabel: "입자 효과 활성화:",
+        languageLabel: "언어:",
+        darkModeLabel: "다크 모드:",
+        deleteAllBtn: "모든 노트 삭제",
+        confirmDeleteAll: "모든 노트를 삭제하시겠습니까?",
+        titlePlaceholder: "제목",
+        bodyPlaceholder: "노트를 입력하세요...",
+        chatPlaceholder: "무엇이든 물어보세요...",
+        calculator: "계산기",
+        dictionary: "사전"
+      },
+      nl: {
+        header: "Open Notities",
+        addNote: "Notitie toevoegen",
+        import: "Importeren",
+        settings: "Instellingen",
+        emptyAdd: "Toevoegen",
+        delete: "Verwijderen",
+        aiAssistant: "Together AI Assistent",
+        particleLabel: "Deeltjes-effecten inschakelen:",
+        languageLabel: "Taal:",
+        darkModeLabel: "Donkere modus:",
+        deleteAllBtn: "Alle notities verwijderen",
+        confirmDeleteAll: "Weet je zeker dat je alle notities wilt verwijderen?",
+        titlePlaceholder: "Titel",
+        bodyPlaceholder: "Begin met het typen van je notitie...",
+        chatPlaceholder: "Stel me een vraag...",
+        calculator: "Rekenmachine",
+        dictionary: "Woordboek"
+      },
+      pl: {
+        header: "Otwarte Notatki",
+        addNote: "Dodaj Notatkę",
+        import: "Importuj",
+        settings: "Ustawienia",
+        emptyAdd: "Dodaj",
+        delete: "Usuń",
+        aiAssistant: "Asystent Together AI",
+        particleLabel: "Włącz efekty cząsteczkowe:",
+        languageLabel: "Język:",
+        darkModeLabel: "Tryb ciemny:",
+        deleteAllBtn: "Usuń wszystkie notatki",
+        confirmDeleteAll: "Czy na pewno chcesz usunąć wszystkie notatki?",
+        titlePlaceholder: "Tytuł",
+        bodyPlaceholder: "Zacznij pisać swoją notatkę...",
+        chatPlaceholder: "Zapytaj mnie o cokolwiek...",
+        calculator: "Kalkulator",
+        dictionary: "Słownik"
+      },
+      sv: {
+        header: "Öppna Anteckningar",
+        addNote: "Lägg till Anteckning",
+        import: "Importera",
+        settings: "Inställningar",
+        emptyAdd: "Lägg till",
+        delete: "Radera",
+        aiAssistant: "Together AI Assistent",
+        particleLabel: "Aktivera partikeleffekter:",
+        languageLabel: "Språk:",
+        darkModeLabel: "Mörkt Läge:",
+        deleteAllBtn: "Radera Alla Anteckningar",
+        confirmDeleteAll: "Är du säker på att du vill radera alla anteckningar?",
+        titlePlaceholder: "Titel",
+        bodyPlaceholder: "Börja skriva din anteckning...",
+        chatPlaceholder: "Fråga mig något...",
+        calculator: "Miniräknare",
+        dictionary: "Ordbok"
+      },
+      hi: {
+        header: "ओपन नोट्स",
+        addNote: "नोट जोड़ें",
+        import: "आयात करें",
+        settings: "सेटिंग्स",
+        emptyAdd: "जोड़ें",
+        delete: "हटाएं",
+        aiAssistant: "Together AI सहायक",
+        particleLabel: "कण प्रभाव सक्षम करें:",
+        languageLabel: "भाषा:",
+        darkModeLabel: "डार्क मोड:",
+        deleteAllBtn: "सभी नोट्स हटाएं",
+        confirmDeleteAll: "क्या आप वाकई सभी नोट्स हटाना चाहते हैं?",
+        titlePlaceholder: "शीर्षक",
+        bodyPlaceholder: "अपनी नोट टाइप करना शुरू करें...",
+        chatPlaceholder: "मुझसे कुछ पूछें...",
+        calculator: "कैलकुलेटर",
+        dictionary: "शब्दकोश"
+      }
+    };
+    let selectedLanguage = localStorage.getItem("selectedLanguage") || "en";
+    function updateLanguage() {
+      const t = translations[selectedLanguage];
+      document.getElementById("header-title").textContent = t.header;
+      document.getElementById("add-note-btn").textContent = t.addNote;
+      document.getElementById("import-btn").textContent = t.import;
+      document.getElementById("settings-btn").textContent = t.settings;
+      document.getElementById("empty-add-btn").textContent = t.emptyAdd;
+      document.getElementById("settings-title").textContent = t.settings;
+      document.getElementById("particle-label").textContent = t.particleLabel;
+      document.getElementById("language-label").textContent = t.languageLabel;
+      document.getElementById("darkmode-label").textContent = t.darkModeLabel;
+      document.getElementById("delete-all-btn").textContent = t.deleteAllBtn;
+      document.getElementById("chat-title").textContent = t.aiAssistant;
+      document.getElementById("calc-header").textContent = t.calculator;
+      document.getElementById("dict-header").textContent = t.dictionary;
+      // Update placeholders
+      document.getElementById("note-title").placeholder = t.titlePlaceholder;
+      document.getElementById("note-body").placeholder = t.bodyPlaceholder;
+      document.getElementById("chat-input").placeholder = t.chatPlaceholder;
+    }
+    document.getElementById("language-select").value = selectedLanguage;
+    document.getElementById("language-select").addEventListener("change", (e) => {
+      selectedLanguage = e.target.value;
+      localStorage.setItem("selectedLanguage", selectedLanguage);
+      updateLanguage();
+    });
+    updateLanguage();
+
+    /* ---------- Dark Mode Functionality ---------- */
+    let darkModeEnabled = localStorage.getItem("darkMode") === "true";
+    const darkmodeToggle = document.getElementById("darkmode-toggle");
+    darkmodeToggle.checked = darkModeEnabled;
+    function updateDarkMode() {
+      if (darkModeEnabled) document.body.classList.add("dark-mode");
+      else document.body.classList.remove("dark-mode");
+      localStorage.setItem("darkMode", darkModeEnabled);
+    }
+    darkmodeToggle.addEventListener("change", (e) => {
+      darkModeEnabled = e.target.checked;
+      updateDarkMode();
+    });
+    updateDarkMode();
+
+    /* ---------- Notes & LocalStorage ---------- */
+    let notes = [];
+    let editingNoteId = null;
+    function loadNotesFromLocalStorage() {
+      const stored = localStorage.getItem("openNotesData");
+      if (stored) {
+        try { notes = JSON.parse(stored); }
+        catch(e) { console.error("Error parsing notes:", e); notes = []; }
+      }
+    }
+    function saveNotesToLocalStorage() {
+      localStorage.setItem("openNotesData", JSON.stringify(notes));
+    }
+    function createNoteTile(note) {
+      const tile = document.createElement('div');
+      tile.className = 'note-tile';
+      tile.dataset.id = note.id;
+      const titleElem = document.createElement('h3');
+      titleElem.textContent = note.title;
+      tile.appendChild(titleElem);
+      const previewElem = document.createElement('p');
+      let words = note.body.trim().split(/\s+/);
+      let preview = words.slice(0, 5).join(' ');
+      if (words.length > 5) preview += '...';
+      previewElem.textContent = preview;
+      tile.appendChild(previewElem);
+      // Add delete button on tile
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-note';
+      delBtn.textContent = "×";
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteNote(note.id);
+      });
+      tile.appendChild(delBtn);
+      tile.addEventListener('click', () => { editingNoteId = note.id; openNoteModal(note); updateLastOpened(note.id); });
+      return tile;
+    }
+    function openNoteModal(note = null) {
+      document.getElementById("note-modal").classList.remove("hidden");
+      document.getElementById("note-title").value = note ? note.title : "";
+      document.getElementById("note-body").value = note ? note.body : "";
+      const exportDiv = document.querySelector(".export-options");
+      if (note) exportDiv.classList.remove("hidden"); else exportDiv.classList.add("hidden");
+    }
+    function closeNoteModal() {
+      document.getElementById("note-modal").classList.add("hidden");
+      editingNoteId = null;
+    }
+    function saveNote() {
+      const title = document.getElementById("note-title").value.trim();
+      const body = document.getElementById("note-body").value.trim();
+      if (!title && !body) return;
+      if (editingNoteId) {
+        let note = notes.find(n => n.id === editingNoteId);
+        note.title = title || "Untitled";
+        note.body = body;
+        note.lastOpened = Date.now();
+      } else {
+        const newNote = { id: Date.now().toString(), title: title || "Untitled", body: body, lastOpened: Date.now() };
+        notes.push(newNote);
+      }
+      saveNotesToLocalStorage();
+      closeNoteModal();
+      renderNotes();
+    }
+    function updateLastOpened(id) {
+      let note = notes.find(n => n.id === id);
+      if (note) { note.lastOpened = Date.now(); saveNotesToLocalStorage(); renderNotes(); }
+    }
+    function renderNotes() {
+      notes.sort((a, b) => b.lastOpened - a.lastOpened);
+      const container = document.getElementById("notes-container");
+      container.innerHTML = "";
+      if (notes.length === 0) {
+        const emptyDiv = document.createElement("div");
+        emptyDiv.id = "empty-state";
+        const addBtn = document.createElement("button");
+        addBtn.id = "empty-add-btn";
+        addBtn.textContent = translations[selectedLanguage].emptyAdd;
+        addBtn.addEventListener("click", () => openNoteModal());
+        emptyDiv.appendChild(addBtn);
+        container.appendChild(emptyDiv);
+      } else {
+        notes.forEach(note => {
+          const tile = createNoteTile(note);
+          container.appendChild(tile);
+          tile.classList.add("animate");
+          setTimeout(() => { tile.classList.remove("animate"); }, 500);
+        });
+      }
+    }
+    function deleteNote(noteId) {
+      notes = notes.filter(n => n.id !== noteId);
+      saveNotesToLocalStorage();
+      renderNotes();
+    }
+    document.getElementById("delete-all-btn").addEventListener("click", () => {
+      if (confirm(translations[selectedLanguage].confirmDeleteAll)) {
+        notes = [];
+        saveNotesToLocalStorage();
+        renderNotes();
+      }
+    });
+    function exportNote(format) {
+      const note = notes.find(n => n.id === editingNoteId);
+      if (!note) return;
+      let content = "";
+      if (format === "txt") content = note.title + "\n\n" + note.body;
+      else if (format === "md") content = "# " + note.title + "\n\n" + note.body;
+      else if (format === "opn") content = JSON.stringify({ title: note.title, body: note.body }, null, 2);
+      const blob = new Blob([content], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.download = note.title.replace(/\s+/g, "_") + "." + format;
+      a.href = URL.createObjectURL(blob);
+      a.click();
+    }
+    function importNote(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const content = e.target.result;
+        let importedNote;
+        if (file.name.endsWith(".opn")) {
+          try { importedNote = JSON.parse(content); }
+          catch(err) { alert("Invalid .opn file"); return; }
+        } else if (file.name.endsWith(".txt") || file.name.endsWith(".md")) {
+          const lines = content.split("\n");
+          importedNote = { title: lines[0] || "Untitled", body: lines.slice(1).join("\n") };
+        } else { alert("Unsupported file type"); return; }
+        importedNote.id = Date.now().toString();
+        importedNote.lastOpened = Date.now();
+        notes.push(importedNote);
+        saveNotesToLocalStorage();
+        renderNotes();
+      };
+      reader.readAsText(file);
+    }
+    /* ---------- Together AI Chat ---------- */
+    function appendChatMessage(role, text) {
+      const chatLog = document.getElementById("chat-log");
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "chat-message " + role;
+      msgDiv.textContent = (role === "user" ? "You: " : "Assistant: ") + text;
+      chatLog.appendChild(msgDiv);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+    function sendMessageToAI(prompt) {
+      const apiKey = window.__env__ && window.__env__.TOGETHER_API_KEY ? window.__env__.TOGETHER_API_KEY : "";
+      if (!apiKey) { appendChatMessage("assistant", "API key not set. Check your config.js file."); return; }
+      fetch("https://api.together.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + apiKey
+        },
+        body: JSON.stringify({ model: "togetherai/gpt4", messages: [{ role: "user", content: prompt }] })
+      })
+      .then(response => response.json())
+      .then(data => {
+        const reply = data.choices && data.choices[0].message && data.choices[0].message.content
+                      ? data.choices[0].message.content : "No response from Together AI.";
+        appendChatMessage("assistant", reply);
+      })
+      .catch(error => { appendChatMessage("assistant", "Error: " + error.message); });
+    }
+    /* ---------- Particle Effects ---------- */
+    let particleEffectsEnabled = true;
+    let particles = [];
+    const particleCount = 150;
+    const canvasElem = document.getElementById("particle-canvas");
+    const ctx = canvasElem.getContext("2d");
+    function resizeCanvas() {
+      canvasElem.width = window.innerWidth;
+      canvasElem.height = window.innerHeight;
+      initParticles();
+    }
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * canvasElem.width,
+          y: Math.random() * canvasElem.height,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          radius: Math.random() * 2 + 1
+        });
+      }
+    }
+    function updateParticles() {
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = canvasElem.width;
+        if (p.x > canvasElem.width) p.x = 0;
+        if (p.y < 0) p.y = canvasElem.height;
+        if (p.y > canvasElem.height) p.y = 0;
+      });
+    }
+    function drawParticles() {
+      ctx.clearRect(0, 0, canvasElem.width, canvasElem.height);
+      if (!particleEffectsEnabled) return;
+      particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0,0,0,1)";
+        ctx.fill();
+      });
+    }
+    function animateParticles() {
+      if (particleEffectsEnabled) updateParticles();
+      drawParticles();
+      requestAnimationFrame(animateParticles);
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    animateParticles();
+    document.getElementById("particle-toggle").addEventListener("change", (e) => {
+      particleEffectsEnabled = e.target.checked;
+      if (particleEffectsEnabled) initParticles();
+      else ctx.clearRect(0, 0, canvasElem.width, canvasElem.height);
+    });
+    /* ---------- Draggable Modals ---------- */
+    function dragElement(elmnt) {
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      const header = elmnt.querySelector(".draggable-header");
+      if (header) { header.onmousedown = dragMouseDown; }
+      else { elmnt.onmousedown = dragMouseDown; }
+      function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos3 = e.clientX; pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+      function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX; pos4 = e.clientY;
+        elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+        elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+      }
+      function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+    }
+    // Initialize draggable modals for Calculator and Dictionary
+    dragElement(document.getElementById("calculator-modal"));
+    dragElement(document.getElementById("dictionary-modal"));
+    /* ---------- Calculator Functionality ---------- */
+    const calcDisplay = document.getElementById("calc-display");
+    const calcButtons = document.querySelectorAll("#calc-buttons .calc-btn");
+    calcButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const value = btn.textContent;
+        if (value === "C") { calcDisplay.value = ""; }
+        else if (value === "=") {
+          try { calcDisplay.value = eval(calcDisplay.value); }
+          catch(e) { calcDisplay.value = "Error"; }
+        } else { calcDisplay.value += value; }
+      });
+    });
+    document.querySelector(".close-calculator").addEventListener("click", () => {
+      document.getElementById("calculator-modal").classList.add("hidden");
+    });
+    document.getElementById("calculator-btn").addEventListener("click", () => {
+      document.getElementById("calculator-modal").classList.remove("hidden");
+    });
+    /* ---------- Dictionary Functionality ---------- */
+    document.querySelector(".close-dictionary").addEventListener("click", () => {
+      document.getElementById("dictionary-modal").classList.add("hidden");
+    });
+    document.getElementById("dictionary-btn").addEventListener("click", () => {
+      document.getElementById("dictionary-modal").classList.remove("hidden");
+    });
+    /* ---------- Event Listeners ---------- */
+    document.getElementById("save-note-btn").addEventListener("click", saveNote);
+    document.querySelector(".close-modal").addEventListener("click", closeNoteModal);
+    document.querySelectorAll(".export-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => exportNote(e.target.dataset.format));
+    });
+    document.getElementById("add-note-btn").addEventListener("click", () => openNoteModal());
+    document.getElementById("import-btn").addEventListener("click", () => {
+      document.getElementById("file-input").click();
+    });
+    document.getElementById("file-input").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) { importNote(file); }
+      e.target.value = null;
+    });
+    document.getElementById("ai-assistant-btn").addEventListener("click", () => {
+      document.getElementById("chat-modal").classList.remove("hidden");
+    });
+    document.querySelector(".close-chat").addEventListener("click", () => {
+      document.getElementById("chat-modal").classList.add("hidden");
+    });
+    document.getElementById("chat-send-btn").addEventListener("click", () => {
+      const input = document.getElementById("chat-input");
+      const prompt = input.value.trim();
+      if (prompt) {
+        appendChatMessage("user", prompt);
+        sendMessageToAI(prompt);
+        input.value = "";
+      }
+    });
+    document.getElementById("chat-input").addEventListener("keyup", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); document.getElementById("chat-send-btn").click(); }
+    });
+    /* ---------- Initialization ---------- */
+    loadNotesFromLocalStorage();
+    renderNotes();
+  </script>
+</body>
+</html>
